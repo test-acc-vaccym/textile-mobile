@@ -18,6 +18,7 @@ import {
   viewPhoto,
   handleNewAppState,
   toggleBackgroundTimer,
+  nodeFlow,
   triggerCreateNode,
   createNode,
   startNode,
@@ -33,6 +34,7 @@ import {
 
 export default function * root () {
   yield all([
+    nodeFlow(),
     // some sagas only receive an action
     takeLatest(StartupTypes.STARTUP, startup),
 
@@ -55,8 +57,8 @@ export default function * root () {
     takeEvery(IpfsNodeTypes.LOCK, toggleBackgroundTimer),
 
     takeEvery(IpfsNodeTypes.CREATE_NODE_REQUEST, createNode),
-    takeEvery(IpfsNodeTypes.START_NODE_REQUEST, startNode),
-    takeEvery(IpfsNodeTypes.STOP_NODE_REQUEST, stopNode),
+    // takeEvery(IpfsNodeTypes.START_NODE_REQUEST, startNode),
+    // takeEvery(IpfsNodeTypes.STOP_NODE_REQUEST, stopNode),
 
     // Actions that trigger creating (therefore starting/stopping) the node
     // takeEvery(action => action.type === IpfsNodeTypes.APP_STATE_CHANGE && action.newState === 'active', triggerCreateNode),
