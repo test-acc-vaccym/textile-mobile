@@ -11,7 +11,7 @@
 *************************************************************/
 import { Platform } from 'react-native'
 import { delay } from 'redux-saga'
-import { call, put, select } from 'redux-saga/effects'
+import { call, put, select, cancel, cancelled, take, fork } from 'redux-saga/effects'
 import BackgroundTimer from 'react-native-background-timer'
 import RNFS from 'react-native-fs'
 import BackgroundTask from 'react-native-background-task'
@@ -20,14 +20,58 @@ import PhotosNavigationService from '../Services/PhotosNavigationService'
 import IPFS from '../../TextileIPFSNativeModule'
 import {queryPhotos} from '../Services/PhotoUtils'
 import TextileActions, { TextileSelectors } from '../Redux/TextileRedux'
-import IpfsNodeActions, { IpfsNodeSelectors } from '../Redux/IpfsNodeRedux'
+import IpfsNodeActions, { IpfsNodeSelectors, IpfsNodeTypes } from '../Redux/IpfsNodeRedux'
 import AuthActions from '../Redux/AuthRedux'
 import UIActions from '../Redux/UIRedux'
 import {params1} from '../Navigation/OnboardingNavigation'
 import Upload from 'react-native-background-upload'
 import { Buffer } from 'buffer'
 
-const API_URL = "https://api.textile.io"
+const API_URL = 'https://api.textile.io'
+
+function * _startNode () {
+  try {
+    const startNodeSuccess = yield call(IPFS.startNode)
+    if (startNodeSuccess) {
+      yield put(IpfsNodeActions.startNodeSuccess())
+    } else {
+      yield put(IpfsNodeActions.startNodeFailure(new Error('Failed starting node, but no error was thrown - Should not happen')))
+    }
+  } catch (error) {
+    yield put(IpfsNodeActions.startNodeFailure(error))
+  } finally {
+    if (yield cancelled()) {
+    }
+  }
+}
+
+function * _stopNode () {
+  try {
+    const stopNodeSuccess = yield call(IPFS.stopNode)
+    if (stopNodeSuccess) {
+      yield put(IpfsNodeActions.stopNodeSuccess())
+    } else {
+      yield put(IpfsNodeActions.stopNodeFailure(new Error('Failed stopping node, but no error was thrown - Should not happen')))
+    }
+  } catch (error) {
+    yield put(IpfsNodeActions.stopNodeFailure(error))
+  } finally {
+    if (yield cancelled()) {
+    }
+  }
+}
+
+export function * nodeFlow () {
+  while (true) {
+    yield take(IpfsNodeTypes.START_NODE_REQUEST)
+    const startNodeTask = yield fork(_startNode)
+    const action = take([IpfsNodeTypes.STOP_NODE_REQUEST, IpfsNodeTypes.START_NODE_FAILURE])
+    if (action.type === IpfsNodeTypes.STOP_NODE_REQUEST) {
+      yield cancel(startNodeTask)
+    }
+    yield call(_stopNode)
+  }
+}
 
 export function * signUp ({data}) {
   const {referralCode, username, email, password} = data
