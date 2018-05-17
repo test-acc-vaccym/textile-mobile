@@ -125,7 +125,8 @@ export function * createNode ({path}) {
     const createNodeSuccess = yield call(IPFS.createNodeWithDataDir, path, API_URL, debugLevel)
     if (createNodeSuccess) {
       yield put(IpfsNodeActions.createNodeSuccess())
-      yield put(IpfsNodeActions.startNodeRequest())
+      // yield put(IpfsNodeActions.startNodeRequest())
+      yield put(IpfsNodeActions.lock(false))
     } else {
       yield put(IpfsNodeActions.createNodeFailure(new Error('Failed creating node, but no error was thrown - Should not happen')))
       yield put(IpfsNodeActions.lock(false))
@@ -146,8 +147,8 @@ export function * startNode () {
     const startNodeSuccess = yield call(IPFS.startNode)
     if (startNodeSuccess) {
       yield put(IpfsNodeActions.startNodeSuccess())
-      yield put(IpfsNodeActions.getPhotoHashesRequest('default'))
-      yield put(IpfsNodeActions.getPhotoHashesRequest('all'))
+      // yield put(IpfsNodeActions.getPhotoHashesRequest('default'))
+      // yield put(IpfsNodeActions.getPhotoHashesRequest('all'))
     } else {
       yield put(IpfsNodeActions.startNodeFailure(new Error('Failed starting node, but no error was thrown - Should not happen')))
       yield put(IpfsNodeActions.lock(false))
@@ -212,7 +213,7 @@ export function * shareImage ({thread, hash, caption}) {
   try {
     const multipartData = yield call(IPFS.sharePhoto, hash, thread, caption)
     yield put(TextileActions.imageAdded(thread, multipartData.boundary, multipartData.payloadPath))
-    yield put(IpfsNodeActions.getPhotoHashesRequest(thread))
+    // yield put(IpfsNodeActions.getPhotoHashesRequest(thread))
     yield call(
       Upload.startUpload,
       {
@@ -237,7 +238,7 @@ export function * photosTask () {
       yield call(RNFS.unlink, photo.path)
       yield call(RNFS.unlink, photo.thumbPath)
       yield put(TextileActions.imageAdded('default', multipartData.boundary, multipartData.payloadPath))
-      yield put(IpfsNodeActions.getPhotoHashesRequest('default'))
+      // yield put(IpfsNodeActions.getPhotoHashesRequest('default'))
       yield call(
         Upload.startUpload,
         {

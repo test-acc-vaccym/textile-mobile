@@ -4,8 +4,34 @@ import PhotoGrid from '../Components/PhotoGrid'
 import { connect } from 'react-redux'
 import IpfsNodeActions from '../Redux/IpfsNodeRedux'
 import UIActions from '../Redux/UIRedux'
+import {Button} from 'react-native'
 
 class TextilePhotos extends React.PureComponent {
+
+  static navigationOptions = ({ navigation }) => {
+    const params = navigation.state.params || {}
+    return {
+      headerRight: (
+        <Button
+          onPress={params.stop}
+          title='Stop'
+          color='#fff'
+        />
+      ),
+      headerLeft: (
+        <Button
+          onPress={params.start}
+          title='Start'
+          color='#fff'
+        />
+      )
+    }
+  }
+
+  componentWillMount () {
+    this.props.navigation.setParams({ start: this.props.start, stop: this.props.stop })
+  }
+
   onSelect = (row) => {
     return () => {
       this.props.viewPhoto(row.index, this.props.thread)
@@ -13,7 +39,7 @@ class TextilePhotos extends React.PureComponent {
   }
 
   onRefresh () {
-    this.props.refresh(this.props.thread)
+    // this.props.refresh(this.props.thread)
   }
 
   render () {
@@ -60,6 +86,8 @@ const mapStateToProps = (state, ownProps) => {
 
 const mapDispatchToProps = (dispatch) => {
   return {
+    start: () => { dispatch(IpfsNodeActions.startNodeRequest()) },
+    stop: () => { dispatch(IpfsNodeActions.stopNodeRequest()) },
     viewPhoto: (index, thread) => { dispatch(UIActions.viewPhotoRequest(index, thread)) },
     refresh: thread => { dispatch(IpfsNodeActions.getPhotoHashesRequest(thread)) }
   }

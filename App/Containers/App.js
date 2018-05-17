@@ -20,7 +20,7 @@ BackgroundTask.define(() => {
 // subscribe to thread updates
 // NOTE: we may want to cancel listener with the returned handle at some point with subscription.remove()
 IPFS.eventEmitter.addListener('onThreadUpdate', (payload) => {
-  store.dispatch(IPFSActions.getPhotoHashesRequest(payload.thread))
+  // store.dispatch(IPFSActions.getPhotoHashesRequest(payload.thread))
 })
 
 /**
