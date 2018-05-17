@@ -65,11 +65,11 @@ export function * nodeFlow () {
   while (true) {
     yield take(IpfsNodeTypes.START_NODE_REQUEST)
     const startNodeTask = yield fork(_startNode)
-    const action = take([IpfsNodeTypes.STOP_NODE_REQUEST, IpfsNodeTypes.START_NODE_FAILURE])
+    const action = yield take([IpfsNodeTypes.STOP_NODE_REQUEST, IpfsNodeTypes.START_NODE_FAILURE])
     if (action.type === IpfsNodeTypes.STOP_NODE_REQUEST) {
       yield cancel(startNodeTask)
     }
-    yield call(_stopNode)
+    yield fork(_stopNode)
   }
 }
 
