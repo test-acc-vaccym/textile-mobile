@@ -15,24 +15,6 @@ import UIActions from '../Redux/UIRedux'
 import SharingDialog from './SharingDialog'
 import AsyncImage from '../Components/AsyncImage'
 
-import Svg,{
-  Circle,
-  Ellipse,
-  G,
-  LinearGradient,
-  RadialGradient,
-  Line,
-  Path,
-  Polygon,
-  Polyline,
-  Rect,
-  Symbol,
-  Use,
-  Defs,
-  ClipPath,
-  Stop
-} from 'react-native-svg';
-
 // Styles
 import styles from './Styles/PhotoViewerScreenStyle'
 
@@ -51,7 +33,7 @@ class PhotoViewerScreen extends React.PureComponent {
     return (<AsyncImage
       key={props.image.key}
       hash={props.image.hash}
-      path={props.image.path}
+      progressiveLoad={props.image.progressiveLoad}
       style={{flex: 1, height: undefined, width: undefined}}
       resizeMode={props.resizeMode}
       capInsets={props.capInsets}
@@ -103,23 +85,23 @@ class PhotoViewerScreen extends React.PureComponent {
           alignItems: 'center',
           marginVertical: 10
         }}>
-          <Svg
-            width={36}
+          <View
+            style={{
+              width: '36',
+              height: '36',
+              alignItems: 'center',
+              backgroundColor: 'rgba(250, 250, 250, 0.1)'
+            }}
             height={36}
+            width={36}
           >
-            <Rect
-              width={36}
-              height={36}
-              rx={4} ry={4}
-              fill={'rgba(250, 250, 250, 0.1)'}
-            />
             <SvgUri
               style={{margin: 2, width: 32, height: 32}}
               width={32}
               height={32}
               svgXmlData={avatar}
-            />
-          </Svg>
+              />
+          </View>
           <Text
             style={{paddingLeft: 10, textAlign: 'left', color: 'white', fontSize: 18}}>
             {username}
@@ -185,11 +167,12 @@ class PhotoViewerScreen extends React.PureComponent {
 const mapStateToProps = (state, ownProps) => {
   const items = state.ipfs.threads[state.ui.viewingPhoto.thread].items
   const path = state.ui.viewingPhoto.thread === 'default' ? '/photo' : '/thumb'
+  const progressiveLoad = state.ui.viewingPhoto.thread === 'default'
   const sharable = state.ui.viewingPhoto.thread === 'default'
   const imageData = items.map(item => {
     return {
       ...item,
-      path,
+      progressiveLoad,
       key: item.hash + path,
       source: {url: 'file://' + item.hash + '.png'}, // <-- in case RN uses to know things
       dimensions: { width: 150, height: 150 },
