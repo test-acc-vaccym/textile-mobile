@@ -1,12 +1,12 @@
 import React from 'react'
-import { View, Image } from 'react-native'
+import { Image } from 'react-native'
 import IPFS from '../../TextileIPFSNativeModule'
 
 export default class AsyncImage extends React.Component {
   constructor (props) {
     super(props)
     this.hasCanceled_ = false
-    this.state = { requested: false, loaded: false, source: {} }
+    this.state = { path: '/thumb', requested: false, loaded: false, source: {}, retry: 2, error: false }
   }
 
   componentWillMount () {
@@ -22,47 +22,91 @@ export default class AsyncImage extends React.Component {
       this._createRequest()
       return false
     }
-    // request has been sent, loaded has become true
-    return this.state.requested && this.state.loaded !== nextState.loaded && nextState.loaded === true
+    return this.state.path !== nextState.path ||
+      this.state.error !== nextState.error ||
+      this.state.loaded !== nextState.loaded ||
+      this.state.requested !== nextState.requested
   }
 
   componentWillUnmount () {
     this.hasCanceled_ = true
   }
 
+
   _createRequest () {
-    IPFS.getHashRequest(this.props.hash, this.props.path)
-      .then(this._setSource)
-      .catch(() => { }) // todo: handle failed image requests vs. unmount
     this.setState(() => ({requested: true}))
+    IPFS.getHashRequest(this.props.hash, this.state.path)
+      .then(this._setSource)
+      .catch(this._retry) // todo: handle failed hash requests vs. unmount
+  }
+
+  _retry () {
+    if (this.state.retry > 0 && !this.hasCanceled_) {
+      this.setState(() => ({retry: this.state.retry - 1, loaded: false}))
+      IPFS.getHashRequest(this.props.hash, this.state.path)
+        .then(this._setSource)
+        .catch(this._retry)
+    } else {
+      this._error()
+    }
+  }
+
+  _error () {
+    // Calls if the image or hash fails to load
+    this.setState(() => ({error: true, loaded: false}))
+  }
+
+  _success () {
+    // Calls after image succesfully loads. Resets available retries for later loads
+    this.setState(() => ({retry: 2}))
   }
 
   _setSource = (source) => {
+    // After async token is received, it readys the image source
     if (!this.hasCanceled_) {
       this.setState(() => ({loaded: true, source}))
+      if (this.props.progressiveLoad && this.state.path === '/thumb') {
+        IPFS.getHashRequest(this.props.hash, '/photo')
+          .then(this._setSource)
+        this.setState(() => ({path: '/photo'}))
+      }
     }
+  }
+
+  placeholder () {
+    let source = require('../Images/loading.png')
+    if (this.state.error) {
+      source = require('../Images/error.png')
+    } else if (!this.state.requested) {
+      source = require('../Images/connecting.png')
+    }
+    return (
+      <Image
+        source={source}
+        resizeMode={this.props.resizeMode || 'cover'}
+        style={this.props.style || {flex: 1, height: undefined, width: undefined}}
+        capInsets={this.props.capInsets}
+      />
+    )
   }
 
   render () {
     if (this.state.loaded) {
       return (
-        < Image
+        <Image
           source={this.state.source}
           resizeMode={this.props.resizeMode || 'cover'}
           style={this.props.style || {flex: 1, height: undefined, width: undefined}}
           capInsets={this.props.capInsets}
+          onLoad={() => {
+            this._success()
+          }}
+          onError={() => {
+            this._retry()
+          }}
         />)
     } else {
-      return (
-        <View
-          style={[
-            this.props.style,
-            {
-              backgroundColor: 'transparent',
-              position: 'absolute'
-            }
-          ]}
-        />)
+      return this.placeholder()
     }
   }
 }

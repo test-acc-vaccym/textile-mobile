@@ -9,9 +9,9 @@
 *  - This template uses the api declared in sagas/index.js, so
 *    you'll need to define a constant in that file.
 *************************************************************/
-import { Platform } from 'react-native'
+import { Platform, AppState } from 'react-native'
 import { delay } from 'redux-saga'
-import { call, put, select, cancel, cancelled, take, fork } from 'redux-saga/effects'
+import { call, put, select, take, cancelled, cancel, fork } from 'redux-saga/effects'
 import BackgroundTimer from 'react-native-background-timer'
 import RNFS from 'react-native-fs'
 import BackgroundTask from 'react-native-background-task'
@@ -19,6 +19,7 @@ import NavigationService from '../Services/NavigationService'
 import PhotosNavigationService from '../Services/PhotosNavigationService'
 import IPFS from '../../TextileIPFSNativeModule'
 import {queryPhotos} from '../Services/PhotoUtils'
+import {StartupTypes} from '../Redux/StartupRedux'
 import TextileActions, { TextileSelectors } from '../Redux/TextileRedux'
 import IpfsNodeActions, { IpfsNodeSelectors, IpfsNodeTypes } from '../Redux/IpfsNodeRedux'
 import AuthActions from '../Redux/AuthRedux'
@@ -26,6 +27,7 @@ import UIActions from '../Redux/UIRedux'
 import {params1} from '../Navigation/OnboardingNavigation'
 import Upload from 'react-native-background-upload'
 import { Buffer } from 'buffer'
+import Config from 'react-native-config'
 
 const API_URL = 'https://api.textile.io'
 
@@ -129,24 +131,29 @@ export function * toggleBackgroundTimer ({value}) {
   }
 }
 
+export function * initializeAppState () {
+  yield take(StartupTypes.STARTUP)
+  const defaultAppState = yield select(IpfsNodeSelectors.appState)
+  let queriedAppState = defaultAppState
+  while (queriedAppState.match(/default|unknown/)) {
+    yield delay(10)
+    const currentAppState = yield call(() => AppState.currentState)
+    queriedAppState = currentAppState || 'unknown'
+  }
+  yield put(IpfsNodeActions.appStateChange(defaultAppState, queriedAppState))
+}
+
 export function * handleNewAppState ({previousState, newState}) {
-  // TODO: HACK alert
-  if (!previousState) {
-    if (newState.match(/unknown|active/)) {
-      console.tron.logImportant('app transitioned to foreground (cold launch)')
-      yield * triggerCreateNode()
-    }
-  } else {
-    if (previousState.match(/unknown|background/) && newState === 'background') {
-      console.tron.logImportant('launched into background')
-      yield * triggerCreateNode()
-    } else if (previousState.match(/unknown|inactive|background/) && newState === 'active') {
-      console.tron.logImportant('app transitioned to foreground')
-      yield * triggerCreateNode()
-    } else if (previousState.match(/inactive|active/) && newState === 'background') {
-      console.tron.logImportant('app transitioned to background')
-      yield * triggerStopNode()
-    }
+  console.log('handleNewAppState', previousState, newState)
+  if (previousState.match(/default|unknown/) && newState === 'background') {
+    console.tron.logImportant('launched into background')
+    yield * triggerCreateNode()
+  } else if (previousState.match(/default|unknown|inactive|background/) && newState === 'active') {
+    console.tron.logImportant('app transitioned to foreground')
+    yield * triggerCreateNode()
+  } else if (previousState.match(/inactive|active/) && newState === 'background') {
+    console.tron.logImportant('app transitioned to background')
+    yield * triggerStopNode()
   }
 }
 
@@ -167,7 +174,8 @@ export function * createNode ({path}) {
   try {
     const debugLevel = (__DEV__ ? "DEBUG" : "INFO")
     const createNodeSuccess = yield call(IPFS.createNodeWithDataDir, path, API_URL, debugLevel)
-    if (createNodeSuccess) {
+    const updateThreadSuccess = yield call(IPFS.updateThread, Config.ALL_THREAD_MNEMONIC, Config.ALL_THREAD_NAME)
+    if (createNodeSuccess && updateThreadSuccess) {
       yield put(IpfsNodeActions.createNodeSuccess())
       yield put(IpfsNodeActions.startNodeRequest())
     } else {
