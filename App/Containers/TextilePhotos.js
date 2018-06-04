@@ -1,16 +1,23 @@
 // @flow
 import React from 'react'
+import {View, Text, Image, TouchableWithoutFeedback, Button} from 'react-native'
 import PhotoGrid from '../Components/PhotoGrid'
 import { connect } from 'react-redux'
+import TextileActions from '../Redux/TextileRedux'
 import IpfsNodeActions from '../Redux/IpfsNodeRedux'
 import UIActions from '../Redux/UIRedux'
-import {Button} from 'react-native'
+import style from './Styles/TextilePhotosStyle'
+import navStyles from '../Navigation/Styles/NavigationStyles'
 
 class TextilePhotos extends React.PureComponent {
-
   static navigationOptions = ({ navigation }) => {
-    const params = navigation.state.params || {}
+    const { params } = navigation.state
     return {
+      headerTitle: (
+        <TouchableWithoutFeedback delayLongPress={3000} onLongPress={params.toggleVerboseUi}>
+          <Image style={navStyles.headerTitleImage} source={require('../Images/TextileHeader.png')} />
+        </TouchableWithoutFeedback>
+      ),
       headerRight: (
         <Button
           onPress={params.stop}
@@ -28,8 +35,12 @@ class TextilePhotos extends React.PureComponent {
     }
   }
 
-  componentWillMount () {
-    this.props.navigation.setParams({ start: this.props.start, stop: this.props.stop })
+  componentDidMount () {
+    this.props.navigation.setParams({
+      toggleVerboseUi: this.props.toggleVerboseUi,
+      start: this.props.start,
+      stop: this.props.stop
+    })
   }
 
   onSelect = (row) => {
@@ -44,15 +55,21 @@ class TextilePhotos extends React.PureComponent {
 
   render () {
     return (
-      <PhotoGrid
-        items={this.props.items}
-        loadingText={this.props.loadingText}
-        onSelect={this.onSelect}
-        onRefresh={this.onRefresh.bind(this)}
-        refreshing={this.props.refreshing}
-        placeholderText={this.props.placeholderText}
-        displayImages={this.props.displayImages}
-      />
+      <View style={style.container}>
+        <PhotoGrid
+          items={this.props.items}
+          onSelect={this.onSelect}
+          onRefresh={this.onRefresh.bind(this)}
+          refreshing={this.props.refreshing}
+          placeholderText={this.props.placeholderText}
+          displayImages={this.props.displayImages}
+        />
+        {this.props.verboseUi &&
+          <View style={style.bottomOverlay} >
+            <Text style={style.overlayText}>{this.props.nodeStatus}</Text>
+          </View>
+        }
+      </View>
     )
   }
 }
@@ -69,18 +86,23 @@ const mapStateToProps = (state, ownProps) => {
   }
   const updatedItems = Object.values(allItemsObj).sort((a, b) => a.index > b.index)
 
+  const nodeStatus = state.ipfs.nodeState.error
+    ? 'Error - ' + state.ipfs.nodeState.error.message
+    : state.ipfs.nodeState.state
+
   const placeholderText = state.ipfs.nodeState.state !== 'started'
-    ? 'IPFS Status:\n' + state.ipfs.nodeState.state
+    ? 'IPFS Status:\n' + nodeStatus
     : (thread === 'default'
     ? 'Any new photos you take will be added to your Textile wallet.'
     : 'Share your first photo to the All Users thread.')
   return {
     thread,
     items: updatedItems,
-    loadingText: state.ipfs.nodeState.state,
     refreshing: state.ipfs.threads[thread].querying,
     displayImages: state.ipfs.nodeState.state === 'started',
-    placeholderText
+    placeholderText,
+    nodeStatus,
+    verboseUi: state.textile.preferences.verboseUi
   }
 }
 
@@ -89,7 +111,8 @@ const mapDispatchToProps = (dispatch) => {
     start: () => { dispatch(IpfsNodeActions.startNodeRequest()) },
     stop: () => { dispatch(IpfsNodeActions.stopNodeRequest()) },
     viewPhoto: (index, thread) => { dispatch(UIActions.viewPhotoRequest(index, thread)) },
-    refresh: thread => { dispatch(IpfsNodeActions.getPhotoHashesRequest(thread)) }
+    refresh: thread => { dispatch(IpfsNodeActions.getPhotoHashesRequest(thread)) },
+    toggleVerboseUi: () => { dispatch(TextileActions.toggleVerboseUi()) }
   }
 }
 
